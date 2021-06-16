@@ -89,16 +89,18 @@ If you execute ping google.com in WSL2, and the result is 'Temporary error in na
     2. To terminate WSL type: wsl --shutdown
 
 3. The two simplest solution to pick DNS server address: 
-    1. Use the one configured for Windows
-        In windows cmd type ipconfig /all for get all the data about your Windows IP network, including the primary and secondary DNS server address. Sometimes there is only one DNL Server listed. Example:
+   1. Use the one configured for Windows
+     - In windows cmd type ipconfig /all for get all the data about your Windows IP network, including the primary and secondary DNS server address. Sometimes there is only one DNL Server listed. Example:
+```
            Default Gateway . . . . . . . . . : 192.168.1.1
            DHCPv4 Class ID . . . . . . . . . : ra006
            DHCP Server . . . . . . . . . . . : 192.168.1.1
         ==>DNS Servers . . . . . . . . . . . : 192.168.1.1<== look for this line
            NetBIOS over Tcpip. . . . . . . . : Disabled
-        
-        Alternatively you can use this hacky PowerShell snippet:
-            ((Get-NetIPConfiguration |
+```
+   - Alternatively you can use this hacky PowerShell snippet:
+```
+((Get-NetIPConfiguration |
                 Where-Object {
                     $_.IPv4DefaultGateway -ne $null -and
                     $_.NetAdapter.Status -ne "Disconnected"
@@ -108,8 +110,8 @@ If you execute ping google.com in WSL2, and the result is 'Temporary error in na
                     $_.AddressFamily -eq 2
                 }
             ).ServerAddresses
-
-    2. Use Google's Public DNS IP addresses: 8.8.8.8
+```
+   2. Use Google's Public DNS IP addresses: 8.8.8.8
 
 4. Configure the DNS Server in WSL
     1. bash
@@ -143,10 +145,10 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
     1. open %appdata%\Microsoft\Windows\Start Menu\Programs\Startup
     2. create a new shortcut (right click, new, shortcut)
     3. copy and paste: "C:\Program Files\VcXsrv\vcxsrv.exe" :0 -ac -terminate -lesspointer -multiwindow -clipboard -nowgl
-        - Fix the C:\Program Files\VcXsrv\ path to your installation if needed.
-        - The ac flag is needed, because the XSrv will be accesses from a different computer (WSL2 runs in Hyper-V)
-        - Why nowgl? Usually the articles say to enable native opengl, but this setting didn't work for me. If you have low performance on opengl, try using -wgl (see also LIBGL_ALWAYS_INDIRECT below).
-        - The above settings (more-or-less) on XLaunch: multiple windows, display 0, start no client, enable clipboard, disable native opengl, enable access control
+      - Fix the C:\Program Files\VcXsrv\ path to your installation if needed.
+      - The ac flag is needed, because the XSrv will be accesses from a different computer (WSL2 runs in Hyper-V)
+      - Why nowgl? Usually the articles say to enable native opengl, but this setting didn't work for me. If you have low performance on opengl, try using -wgl (see also LIBGL_ALWAYS_INDIRECT below).
+      - The above settings (more-or-less) on XLaunch: multiple windows, display 0, start no client, enable clipboard, disable native opengl, enable access control
 
 3. Start VcXsrv (either through the created shortcut, or with XLaunch from the Start Menu)
 
@@ -156,7 +158,7 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
     3. Locate the network adapter, where the DNS server setting is available (same as in the fix for the DNS server issue):
     [...]
     Ethernet adapter something (NiceNameForSomething):
-
+```
        Connection-specific DNS Suffix  . :
        Description . . . . . . . . . . . : Description here!
        Physical Address. . . . . . . . . : FF-00-FF-00-FF-00
@@ -172,17 +174,20 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
        DNS Servers . . . . . . . . . . . : 192.168.1.1
        NetBIOS over Tcpip. . . . . . . . : Disabled
     [...]
-    
+```
+
     In this example your IP address is 192.168.1.111
     
     Alternatively you can use this hacky PowerShell snippet:
-        (Get-NetIPConfiguration |
+```
+(Get-NetIPConfiguration |
             Where-Object {
                 $_.IPv4DefaultGateway -ne $null -and
                 $_.NetAdapter.Status -ne "Disconnected"
             }
         ).IPv4Address.IPAddress    
-    
+```
+
 5. In your Linux distro you need to export the DISPLAY variable (REPLACE 192.168.1.111 with your IP address)
     1. To start Linux type: bash
     2. echo "export DISPLAY=192.168.1.111:0" >> ~/.bashrc
@@ -195,13 +200,13 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
     1. To start Windows Firewall Settings type: wf.msc
     2. Click: Inbound Rules
     3. Click: New Rule (either on the right side pane or right-click Inbound Rules)
-        1. Select: Custom, 
-        2. Select: All programs
-        3. Select: Any protocol
-        4. Both in local and remote IP box add your IP address you determined above
-        5. Allow the connection
-        6. Select: Domain and Private, decelect Public
-        5. Name as WSL Server
+      1. Select: Custom, 
+      2. Select: All programs
+      3. Select: Any protocol
+      4. Both in local and remote IP box add your IP address you determined above
+      5. Allow the connection
+      6. Select: Domain and Private, decelect Public
+      7. Name as WSL Server
         
 7. Test from Linux:
 	1. sudo apt install mesa-utils
@@ -221,10 +226,11 @@ Similarly to XWindows communication, the WSL2 Pulse server will use the firewall
 4. Edit the configurations:
     1. create a new file 'config.pa' (c:\work\wsl\pulse\config.pa)
     2. add the following lines (REPLACE 192.168.1.111 with your IP address):   
+```
         load-module module-native-protocol-tcp port=4713 auth-ip-acl=192.168.1.111
         load-module module-esound-protocol-tcp port=4714 auth-ip-acl=192.168.1.111        
         load-module module-waveout
-
+```
     
 5. execute: pulseaudio.exe -F config.pa --use-pid-file=false --exit-idle-time=-1
     The pulse audio server should be running.
@@ -246,11 +252,11 @@ Note: pulse audio has to be started every time if you want to hear sound from WS
     
 # Links
 
-https://github.com/microsoft/WSL/issues/4139
-https://stackoverflow.com/questions/61110603/how-to-set-up-working-x11-forwarding-on-wsl2
-https://kenny.yeoyou.net/it/2020/09/10/windows-development-environment.html
-https://www.hanselman.com/blog/the-easy-way-how-to-ssh-into-bash-and-wsl2-on-windows-10-from-an-external-machine
-https://superuser.com/questions/1305738/using-gnome-desktop-on-windows-wsl-version-of-ubuntu
-https://docs.microsoft.com/en-us/windows/wsl/troubleshooting
-https://www.shogan.co.uk/how-tos/wsl2-gui-x-server-using-vcxsrv/
-https://skeptric.com/wsl2-xserver/
+* https://github.com/microsoft/WSL/issues/4139
+* https://stackoverflow.com/questions/61110603/how-to-set-up-working-x11-forwarding-on-wsl2
+* https://kenny.yeoyou.net/it/2020/09/10/windows-development-environment.html
+* https://www.hanselman.com/blog/the-easy-way-how-to-ssh-into-bash-and-wsl2-on-windows-10-from-an-external-machine
+* https://superuser.com/questions/1305738/using-gnome-desktop-on-windows-wsl-version-of-ubuntu
+* https://docs.microsoft.com/en-us/windows/wsl/troubleshooting
+* https://www.shogan.co.uk/how-tos/wsl2-gui-x-server-using-vcxsrv/
+* https://skeptric.com/wsl2-xserver/
