@@ -89,8 +89,10 @@ If you execute ping google.com in WSL2, and the result is 'Temporary error in na
     2. To terminate WSL type: wsl --shutdown
 
 3. The two simplest solution to pick DNS server address: 
-   1. Use the one configured for Windows
-     - In windows cmd type ipconfig /all for get all the data about your Windows IP network, including the primary and secondary DNS server address. Sometimes there is only one DNL Server listed. Example:
+
+ **a. Use the one configured for Windows**
+ 
+  - In windows cmd type ipconfig /all for get all the data about your Windows IP network, including the primary and secondary DNS server address. Sometimes there is only one DNL Server listed. Example:
 ```
            Default Gateway . . . . . . . . . : 192.168.1.1
            DHCPv4 Class ID . . . . . . . . . : ra006
@@ -98,7 +100,9 @@ If you execute ping google.com in WSL2, and the result is 'Temporary error in na
         ==>DNS Servers . . . . . . . . . . . : 192.168.1.1<== look for this line
            NetBIOS over Tcpip. . . . . . . . : Disabled
 ```
+
    - Alternatively you can use this hacky PowerShell snippet:
+	     
 ```
 ((Get-NetIPConfiguration |
                 Where-Object {
@@ -111,8 +115,9 @@ If you execute ping google.com in WSL2, and the result is 'Temporary error in na
                 }
             ).ServerAddresses
 ```
-   2. Use Google's Public DNS IP addresses: 8.8.8.8
-
+ **b. Use Google's Public DNS IP addresses**
+   - use the value: 8.8.8.8
+   
 4. Configure the DNS Server in WSL
     1. bash
     2. cd /etc
