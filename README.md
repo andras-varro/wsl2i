@@ -42,7 +42,7 @@ Windows drives are mounted in WSL under /mnt, like /mnt/c/Users == c:\Users
 
 ## Install WSL22
 
-0. Check if your installation supports WSL2: Windows logo key + R, type winver [enter]. You should have Version 1903 or higher, with Build 18362 or higher (standard Siemens clients supposed to be at least this version)
+0. Check if your installation supports WSL2: Windows logo key + R, type winver [enter]. You should have Version 1903 or higher, with Build 18362 or higher
 
 1. Enable WSL2
     1. Open an admin prompt (Press shift+ctrl and click on PowerShell/cmd)
