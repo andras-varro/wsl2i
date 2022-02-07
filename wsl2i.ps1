@@ -1,9 +1,10 @@
-param ([string]$firewall_rule_name='WSL Server', [string]$host_ip, [string]$pulse_path="$env:ProgramFiles\Pulse", [bool]$maintain=$false) 
+param ([string]$firewall_rule_name='WSL Server', [string]$host_ip, [string]$pulse_path="$env:ProgramFiles\Pulse", [bool]$maintain=$false, [string]$distro="ubuntu") 
 
 $wsl2_kernel_link="https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi"
 $wsl2_kernel_sha1="E6F3F03FA7C3248B006E23141C7692B47AFE3759"
 $wsl_distro_link="https://aka.ms/wslubuntu2004"
 $wsl_distro_sha1="FED6EB0B0E18C395B3A0F37C036678D5B67DB919"
+$wsl_distro_use_this_sub_appx=""
 $distro_local_path="$Env:SystemDrive\Linux\ubuntu2004"
 $distro_search_pattern="U.b.u.n.t.u.-.2.0...0.4"
 $distro_name="Ubuntu-20.04"
@@ -16,6 +17,45 @@ $pulse_audio_link="http://code.x2go.org/releases/binary-win32/3rd-party/pulse/pu
 $pulse_audio_sha1="2DB4D750F299B6B5DF5A541216C0882745F55399"
 $default_nameserver_ip="8.8.8.8"
 $use_windows_nameserver=$false
+
+function UseDebianDistro()
+{
+    $global:wsl_distro_link="https://aka.ms/wsl-debian-gnulinux"
+    $global:wsl_distro_sha1="19a369332ee015bb8ddb1dcf99553bebcfd068cb"
+    $global:wsl_distro_use_this_sub_appx="DistroLauncher-Appx_1.12.1.0_x64.appx"
+    $global:distro_local_path="$Env:SystemDrive\Linux\debian"
+    $global:distro_search_pattern="D.e.b.i.a.n"
+    $global:distro_name="Debian"
+    $global:distro_setup_file="debian.exe"
+    
+    
+    # Set-Variable -Name "wsl_distro_link" - value "https://aka.ms/wsl-debian-gnulinux" -scope global    
+    # Set-Variable -Name "wsl_distro_sha1" - value "19a369332ee015bb8ddb1dcf99553bebcfd068cb" -scope global
+    # Set-Variable -Name "wsl_distro_use_this_sub_appx" - value "DistroLauncher-Appx_1.12.1.0_x64.appx" -scope global
+    # Set-Variable -Name "distro_local_path" - value "$Env:SystemDrive\Linux\debian" -scope global
+    # Set-Variable -Name "distro_search_pattern" - value "D.e.b.i.a.n" -scope global
+    # Set-Variable -Name "distro_name" - value "Debian" -scope global
+    # Set-Variable -Name "distro_setup_file" - value "debian.exe" -scope global
+}
+
+function UseUbuntuDistro()
+{
+    $global:wsl_distro_link="https://aka.ms/wslubuntu2004"
+    $global:wsl_distro_sha1="FED6EB0B0E18C395B3A0F37C036678D5B67DB919"
+    $global:wsl_distro_use_this_sub_appx=""
+    $global:distro_local_path="$Env:SystemDrive\Linux\ubuntu2004"
+    $global:distro_search_pattern="U.b.u.n.t.u.-.2.0...0.4"
+    $global:distro_name="Ubuntu-20.04"
+    $global:distro_setup_file="ubuntu2004.exe"
+    
+    # Set-Variable -Name "wsl_distro_link" - value "https://aka.ms/wslubuntu2004" -scope global    
+    # Set-Variable -Name "wsl_distro_sha1" - value "FED6EB0B0E18C395B3A0F37C036678D5B67DB919" -scope global
+    # Set-Variable -Name "wsl_distro_use_this_sub_appx" - value "" -scope global
+    # Set-Variable -Name "distro_local_path" - value "$Env:SystemDrive\Linux\ubuntu2004" -scope global
+    # Set-Variable -Name "distro_search_pattern" - value "U.b.u.n.t.u.-.2.0...0.4" -scope global
+    # Set-Variable -Name "distro_name" - value "Ubuntu-20.04" -scope global
+    # Set-Variable -Name "distro_setup_file" - value "ubuntu2004.exe" -scope global
+}
 
 function ContinueOrExit([string]$message)
 {
@@ -112,8 +152,9 @@ function DownloadAndCheckCRC([string]$url, [string]$local_file_path, [string]$su
     
     if ( $hash -ne "" )
     {
-        $computed_hash=$(Get-FileHash -Algorithm SHA1 $local_file_path).Hash
-        if ( $computed_hash -eq $supplied_hash ) 
+        # $computed_hash=$(Get-FileHash -Algorithm SHA1 $local_file_path).Hash
+        # if ( $computed_hash -eq $supplied_hash ) 
+        if (CheckHash "$local_file_path" $supplied_hash)
 		{
 			echo "Download of url [$url] completed. Hash check is OK."
 		    return 
@@ -124,6 +165,12 @@ function DownloadAndCheckCRC([string]$url, [string]$local_file_path, [string]$su
     }
     
     echo "Download of url [$url] completed. No hash supplied, hash check not performed."
+}
+
+function CheckHash ([string]$local_file_path, [string]$supplied_hash)
+{
+    $computed_hash=$(Get-FileHash -Algorithm SHA1 "$local_file_path").Hash
+    return ( $computed_hash -eq $supplied_hash ) 
 }
 
 function StartProcess([string]$message, [string]$file_path, [string]$argument_list)
@@ -191,10 +238,38 @@ function Unzip ([string]$source_path, [string] $target_path)
 
 function DownloadDistroAndPrepareDirectory([string]$distro_local_path, [string] $wsl_distro_link, [string]$wsl_distro_sha1)
 {
-	ContinueOrExit "Downloading distro image, this can take a while (usual size is around 500Mb)"
 	$local_file_path="$env:TEMP\distro.zip"
-	DownloadAndCheckCRC $wsl_distro_link $local_file_path $wsl_distro_sha1
-	Unzip $local_file_path $distro_local_path        
+	
+    if ( (test-path "$local_file_path") -and (CheckHash "$local_file_path" $wsl_distro_sha1) )
+    {
+        $header = 'Distro installer is available locally'
+        $text = "The distro is not installed, but apparently the installer is available in the file system under [$local_file_path]. Do you want to use the local copy?"
+        $choices = '&Yes', '&No'
+
+        $answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
+        if ($answer -ne 0) {
+            DownloadAndCheckCRC $wsl_distro_link $local_file_path $wsl_distro_sha1
+        } 
+    }
+    else
+    {
+        ContinueOrExit "Downloading distro image, this can take a while (usual size is around 500Mb)"
+        DownloadAndCheckCRC $wsl_distro_link $local_file_path $wsl_distro_sha1
+    }
+    
+    if ($wsl_distro_use_this_sub_appx -ne "")
+    {
+        $random_temp_dir_name = GetRandomTempFolder
+        Unzip $local_file_path $random_temp_dir_name
+        $zip_name = [System.IO.Path]::ChangeExtension("$random_temp_dir_name\$wsl_distro_use_this_sub_appx",".zip")
+        # unzip checks the extension. if it is not *.zip it fails.
+        rename-item -path "$random_temp_dir_name\$wsl_distro_use_this_sub_appx" -newname $zip_name
+        Unzip "$zip_name" $distro_local_path
+    }
+    else
+    {
+        Unzip $local_file_path $distro_local_path
+    }
 	icacls $distro_local_path /t /grant "Everyone:(OI)(CI)F"
 	if (!$?) 
 	{
@@ -202,7 +277,24 @@ function DownloadDistroAndPrepareDirectory([string]$distro_local_path, [string] 
 	}
 }
 
-function QueryDistroAndInstall ([string]$distro_local_path, [string] $wsl_distro_link, [string]$wsl_distro_sha1, [string]$distro_search_pattern, [string]$distro_setup_file)
+function GetRandomTempFolder ()
+{
+    return "$env:TEMP\"+[System.IO.Path]::GetRandomFileName()
+}
+
+function SelectDistro ()
+{
+    if ($distro -eq "debian")
+    {
+        UseDebianDistro
+    }    
+    else
+    {
+        UseUbuntuDistro
+    }
+}
+
+function QueryDistroAndInstall ([string]$distro_local_path, [string] $wsl_distro_link, [string]$wsl_distro_sha1, [string]$distro_search_pattern, [string]$distro_setup_file, [string]$wsl_distro_use_this_sub_appx)
 {
     echo "Querying for distro..."
     $is_distro_available = $false
@@ -546,8 +638,9 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
     QueryHypervStateAndInstall $script_path
     QueryWSLStateAndInstall $script_path
     QueryWsl2AndInstall $wsl2_kernel_link $wsl2_kernel_sha1
-    QueryDistroAndInstall $distro_local_path $wsl_distro_link $wsl_distro_sha1 $distro_search_pattern $distro_setup_file
-    SetDistroDefault $distro_name
+    SelectDistro
+    QueryDistroAndInstall $global:distro_local_path $global:wsl_distro_link $global:wsl_distro_sha1 $global:distro_search_pattern $global:distro_setup_file $global:wsl_distro_use_this_sub_appx
+    SetDistroDefault $global:distro_name
     CheckAndFixWslDns $default_nameserver_ip $use_windows_nameserver
     SetupXWindows $host_ip $xsrv_link $xsrv_sha1 $xsrv_executable $xsrv_start_arguments
     SetupPulseAudio $host_ip $pulse_path $pulse_audio_link $pulse_audio_sha1
@@ -559,7 +652,3 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
         MaintainFirewall $firewall_rule_name $host_ip 
     }
 #}
-
-
-
-
