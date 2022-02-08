@@ -584,10 +584,10 @@ function SetDistroDefault ([string]$distro_name)
     & wsl -s $distro_name
 }
 
-function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$pulse_path, [string]$xsrv_executable, [string]$distro_name)
+function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$pulse_path, [string]$xsrv_executable, [string]$distro_name, [string]$default_nameserver_ip, [bool]$use_windows_nameserver)
 {
     SetDistroDefault $distro_name
-    CheckAndFixWslDns
+    CheckAndFixWslDns $default_nameserver_ip $use_windows_nameserver
     
     [bool]$is_pulse_installed=IsPulseInstalled $pulse_path
     [bool]$is_xsrv_installed=IsXServerInstalled $xsrv_executable
@@ -623,14 +623,17 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
         $host_ip=QueryHostIp
     }
     
+    SelectDistro
+    
     echo "Host IP: $host_ip"
     echo "Firewall rule name: $firewall_rule_name"
     echo "Pulse audio path: $pulse_path"
-	echo "Distro local path: $distro_local_path"
+	echo "Distro local path: $global:distro_local_path"
     if ( $maintain )
     {
         echo "Performing maintaintenance only"
-        MaintainOnly $host_ip $firewall_rule_name $pulse_path $xsrv_executable $distro_name
+        
+        MaintainOnly $host_ip $firewall_rule_name $pulse_path $xsrv_executable $global:distro_name $default_nameserver_ip $use_windows_nameserver
         exit
     }
 
@@ -638,7 +641,6 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
     QueryHypervStateAndInstall $script_path
     QueryWSLStateAndInstall $script_path
     QueryWsl2AndInstall $wsl2_kernel_link $wsl2_kernel_sha1
-    SelectDistro
     QueryDistroAndInstall $global:distro_local_path $global:wsl_distro_link $global:wsl_distro_sha1 $global:distro_search_pattern $global:distro_setup_file $global:wsl_distro_use_this_sub_appx
     SetDistroDefault $global:distro_name
     CheckAndFixWslDns $default_nameserver_ip $use_windows_nameserver
