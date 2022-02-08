@@ -19,12 +19,15 @@ The script supports the following parameters:
 - maintain [bool]: Don't perform any installation, just update the IP and fix the DNS in WSL. Use this if you have a readily installed environment and you want to update it because your IP has changed. The default value is `$false`.
 - pulse_path [string]: Specifies where to install/search for Pulse Audio Server if you opt-in for using it. Set this parameter, if you want to install/use Pulse Audio to/from a specific location. The default value is `$env:ProgramFiles\Pulse`.
 - firewall_rule_name [string]: Specifies what should be the name of the firewall rule. Firewall rule is only created if X-Windows server and/or Pulse Audio server is enabled. Use this variable, if you want to change the default value. The default value is `WSL Server`.
+- distro [string]: currently "debian" and "ubuntu" is supported
 
 Examples:
 ```
 ./wsl2i.ps1 -host_ip "192.168.4.100" -pulse_path "d:\wsl\pulse" -firewall_rule_name "_for_wsl" 
 
 ./wsl2i.ps1 -pulse_path "d:\wsl\pulse" -firewall_rule_name "_for_wsl" -maintain $true
+
+./wsl2i.ps1 -distro "debian"
 
 ```
 
