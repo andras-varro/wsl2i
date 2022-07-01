@@ -1,4 +1,4 @@
-param ([string]$firewall_rule_name='WSL Server', [string]$host_ip, [string]$pulse_path="$env:ProgramFiles\Pulse", [bool]$maintain=$false, [string]$distro="ubuntu") 
+param ([string]$firewall_rule_name='WSL Server', [string]$host_ip, [string]$pulse_path="$env:ProgramFiles\Pulse", [string]$maintain="", [string]$distro="ubuntu") 
 
 $wsl2_kernel_link="https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi"
 $wsl2_kernel_sha1="E6F3F03FA7C3248B006E23141C7692B47AFE3759"
@@ -155,10 +155,10 @@ function DownloadAndCheckCRC([string]$url, [string]$local_file_path, [string]$su
         # $computed_hash=$(Get-FileHash -Algorithm SHA1 $local_file_path).Hash
         # if ( $computed_hash -eq $supplied_hash ) 
         if (CheckHash "$local_file_path" $supplied_hash)
-		{
-			echo "Download of url [$url] completed. Hash check is OK."
-		    return 
-		}
+        {
+            echo "Download of url [$url] completed. Hash check is OK."
+            return 
+        }
         
         ContinueOrExit "Computed hash [$computed_hash] for file [$local_file_path], downloaded from [$url] is not equals the supplied hash [$supplied_hash]. Maybe a newer version? Continue at your own risk"
         return        
@@ -200,14 +200,14 @@ function QueryWsl2AndInstall([string]$wsl2_kernel_link, [string]$wsl2_kernel_sha
     echo "Querying WSL2 kernel status..."
     [string[]]$result = wsl --set-default-version 2
     if ($result.Length -lt 1) 
-	{ 
+    { 
         ContinueOrExit "Unable to determine the status of WSL2"
     }
 
     $matchInfo = echo $result[0] | Select-String -pattern "h.t.t.p.s.:././.a.k.a...m.s./.w.s.l.2.k.e.r.n.e.l"
     $wsl2_available = $matchInfo.Matches.Count -eq 0
     if ( !  $wsl2_available ) 
-	{
+    {
         echo "WSL2 kernel is not available"
         ContinueOrExit "Downloading WSL2 kernel"
         $local_file_path="$env:TEMP\wsl_update_x64.msi" 
@@ -225,7 +225,7 @@ function Unzip ([string]$source_path, [string] $target_path)
 {
     echo "Extracting archive... See progress above"
     if (Test-Path $target_path) 
-	{
+    {
         Remove-Item $target_path -Force -Confirm:$false -Recurse
     }
     
@@ -238,8 +238,8 @@ function Unzip ([string]$source_path, [string] $target_path)
 
 function DownloadDistroAndPrepareDirectory([string]$distro_local_path, [string] $wsl_distro_link, [string]$wsl_distro_sha1)
 {
-	$local_file_path="$env:TEMP\distro.zip"
-	
+    $local_file_path="$env:TEMP\distro.zip"
+    
     if ( (test-path "$local_file_path") -and (CheckHash "$local_file_path" $wsl_distro_sha1) )
     {
         $header = 'Distro installer is available locally'
@@ -270,11 +270,11 @@ function DownloadDistroAndPrepareDirectory([string]$distro_local_path, [string] 
     {
         Unzip $local_file_path $distro_local_path
     }
-	icacls $distro_local_path /t /grant "Everyone:(OI)(CI)F"
-	if (!$?) 
-	{
-		ContinueOrExit "Setting the rights for the distro image failed"
-	}
+    icacls $distro_local_path /t /grant "Everyone:(OI)(CI)F"
+    if (!$?) 
+    {
+        ContinueOrExit "Setting the rights for the distro image failed"
+    }
 }
 
 function GetRandomTempFolder ()
@@ -307,24 +307,24 @@ function QueryDistroAndInstall ([string]$distro_local_path, [string] $wsl_distro
     }
 
     if ( ! $is_distro_available ) {
-		if ( Test-Path "$distro_local_path\$distro_setup_file" )
-		{
-			$header = 'Distro available locally'
-			$text = "The distro is not registered, but apparently it is available in the file system under [$distro_local_path\$distro_setup_file]. Do you want to use the local copy?"
-			$choices = '&Yes', '&No'
+        if ( Test-Path "$distro_local_path\$distro_setup_file" )
+        {
+            $header = 'Distro available locally'
+            $text = "The distro is not registered, but apparently it is available in the file system under [$distro_local_path\$distro_setup_file]. Do you want to use the local copy?"
+            $choices = '&Yes', '&No'
 
-			$answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
-			if ($answer -ne 0) {
-				DownloadDistroAndPrepareDirectory $distro_local_path $wsl_distro_link $wsl_distro_sha1
-			} 
-		}
+            $answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
+            if ($answer -ne 0) {
+                DownloadDistroAndPrepareDirectory $distro_local_path $wsl_distro_link $wsl_distro_sha1
+            } 
+        }
         else 
-		{
-			DownloadDistroAndPrepareDirectory $distro_local_path $wsl_distro_link $wsl_distro_sha1
-		}
+        {
+            DownloadDistroAndPrepareDirectory $distro_local_path $wsl_distro_link $wsl_distro_sha1
+        }
 
-        StartProcess "Starting Distro installer. Please follow the on screen instructions, and when the bash prompt is displayed, type `exit` to continue with the setup." "$distro_local_path\$distro_setup_file"		
-		echo "Continuing installer"
+        StartProcess "Starting Distro installer. Please follow the on screen instructions, and when the bash prompt is displayed, type `exit` to continue with the setup." "$distro_local_path\$distro_setup_file"        
+        echo "Continuing installer"
     } 
     else 
     {
@@ -353,14 +353,14 @@ function CheckAndFixWslDns ([string]$default_nameserver_ip, [bool]$use_windows_n
             $resolv_conf_command=$resolv_conf_command + " echo ""nameserver $default_nameserver_ip"" | sudo tee -a resolv.conf;"
         }
     }
-	else
+    else
     {
         $resolv_conf_command="echo ""nameserver $default_nameserver_ip"" | sudo tee resolv.conf;"
     }
     
-    $argument="if ( ! ping google.com -c 1 >/dev/null 2>&1 ) then read -p 'WSL DNS is not working. To fix the DNS issue in WSL, we need to execute elevated commands (sudo). WSL will ask you for your Linux password. Press any key to start ...'; cd /etc; echo '[network]' | sudo tee wsl.conf; echo 'generateResolvConf = false' | sudo tee -a wsl.conf; sudo rm -Rf resolv.conf; $resolv_conf_command else echo 'WSL DNS is working'; fi"    
-    StartProcess "" "wsl" $argument	
-	wsl --shutdown
+    $argument="wget -q --spider http://google.com; if [[ $? -ne 0 ]]; then read -p 'WSL DNS is not working. To fix the DNS issue in WSL, we need to execute elevated commands (sudo). WSL will ask you for your Linux password. Press any key to start ...'; cd /etc; echo '[network]' | sudo tee wsl.conf; echo 'generateResolvConf = false' | sudo tee -a wsl.conf; sudo rm -Rf resolv.conf; $resolv_conf_command else echo 'WSL DNS is working'; fi"
+    StartProcess "" "wsl" $argument
+    wsl --shutdown
 }
 
 function MaintainExportDisplay ([string]$host_ip)
@@ -371,7 +371,7 @@ function MaintainExportDisplay ([string]$host_ip)
 
 function DoSetupForXWindows ([string]$host_ip, [string]$xsrv_link, [string]$xsrv_sha1)
 {
-	$local_file_path="$env:TEMP\xsrv_installer.exe"
+    $local_file_path="$env:TEMP\xsrv_installer.exe"
     DownloadAndCheckCRC $xsrv_link $local_file_path $xsrv_sha1
     & $local_file_path /S
     MaintainExportDisplay $host_ip
@@ -492,7 +492,7 @@ function DoSetupForPulse ([string]$host_ip, [string]$pulse_path, [string]$pulse_
     $local_file_path="$env:TEMP\pulse.zip"
     DownloadAndCheckCRC $pulse_audio_link $local_file_path $pulse_audio_sha1
     Unzip $local_file_path $pulse_path
-	Move-Item "$pulse_path\pulse\*" $pulse_path
+    Move-Item "$pulse_path\pulse\*" $pulse_path
     MaintainPulse $host_ip $pulse_path
     MaintainExportPulse $host_ip
 }
@@ -581,6 +581,7 @@ function MaintainFirewall ([string]$firewall_rule_name, [string]$host_ip)
 
 function SetDistroDefault ([string]$distro_name)
 {
+    echo "Setting $distro_name as default."
     & wsl -s $distro_name
 }
 
@@ -611,16 +612,31 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
 
 #function Main(string[]$args)
 #{
-	if (! ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
-	{
-		echo "Please re-run this script as an Administrator!"
-		exit
-	}
-	
+    if (! ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
+    {
+        $header = 'No admin rights'
+        $text = 'The script was started without admin rights. If you continue, multiple functions would not work. Do you want to continue?'
+        $choices = '&Yes', '&No'
+        $answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
+        if ($answer -ne 0) {
+            echo "Please re-run this script as an Administrator!"
+            exit        
+        }
+        echo "Continuing without admin rights"
+    }
+    
     $script_path = $MyInvocation.MyCommand.Path
     if ([string]::IsNullOrEmpty($host_ip))
     {
         $host_ip=QueryHostIp
+    }
+    
+    if (! [string]::IsNullOrEmpty($maintain) )
+    {
+        echo "Performing maintaintenance only for image $maintain"
+        
+        MaintainOnly $host_ip $firewall_rule_name $pulse_path $xsrv_executable $maintain $default_nameserver_ip $use_windows_nameserver
+        exit
     }
     
     SelectDistro
@@ -628,15 +644,8 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
     echo "Host IP: $host_ip"
     echo "Firewall rule name: $firewall_rule_name"
     echo "Pulse audio path: $pulse_path"
-	echo "Distro local path: $global:distro_local_path"
-    if ( $maintain )
-    {
-        echo "Performing maintaintenance only"
-        
-        MaintainOnly $host_ip $firewall_rule_name $pulse_path $xsrv_executable $global:distro_name $default_nameserver_ip $use_windows_nameserver
-        exit
-    }
-
+    echo "Distro local path: $global:distro_local_path"
+    
     CheckWindowsReleaseId
     QueryHypervStateAndInstall $script_path
     QueryWSLStateAndInstall $script_path
@@ -654,3 +663,7 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
         MaintainFirewall $firewall_rule_name $host_ip 
     }
 #}
+
+
+
+
