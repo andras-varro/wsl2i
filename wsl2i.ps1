@@ -1,61 +1,16 @@
-param ([string]$firewall_rule_name='WSL Server', [string]$host_ip, [string]$pulse_path="$env:ProgramFiles\Pulse", [string]$maintain="", [string]$distro="ubuntu") 
+param ([string]$firewall_rule_name='WSL Server', [string]$pulse_path="$env:ProgramFiles\Pulse", [string]$distro="Ubuntu-20.04") 
 
 $wsl2_kernel_link="https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi"
 $wsl2_kernel_sha1="E6F3F03FA7C3248B006E23141C7692B47AFE3759"
-$wsl_distro_link="https://aka.ms/wslubuntu2004"
-$wsl_distro_sha1="FED6EB0B0E18C395B3A0F37C036678D5B67DB919"
-$wsl_distro_use_this_sub_appx=""
-$distro_local_path="$Env:SystemDrive\Linux\ubuntu2004"
-$distro_search_pattern="U.b.u.n.t.u.-.2.0...0.4"
-$distro_name="Ubuntu-20.04"
-$distro_setup_file="ubuntu2004.exe"
 $xsrv_link="https://sourceforge.net/projects/vcxsrv/files/vcxsrv/1.20.9.0/vcxsrv-64.1.20.9.0.installer.exe/download"
 $xsrv_sha1="9FE0D6516AED298EED4159028AECA2105743F0F3"
 $xsrv_executable="vcxsrv.exe"
 $xsrv_start_arguments=":0 -ac -terminate -lesspointer -multiwindow -clipboard -nowgl"
 $pulse_audio_link="http://code.x2go.org/releases/binary-win32/3rd-party/pulse/pulseaudio-5.0-rev18.zip"
 $pulse_audio_sha1="2DB4D750F299B6B5DF5A541216C0882745F55399"
+$pulse_audio_executable="pulseaudio.exe"
 $default_nameserver_ip="8.8.8.8"
 $use_windows_nameserver=$false
-
-function UseDebianDistro()
-{
-    $global:wsl_distro_link="https://aka.ms/wsl-debian-gnulinux"
-    $global:wsl_distro_sha1="19a369332ee015bb8ddb1dcf99553bebcfd068cb"
-    $global:wsl_distro_use_this_sub_appx="DistroLauncher-Appx_1.12.1.0_x64.appx"
-    $global:distro_local_path="$Env:SystemDrive\Linux\debian"
-    $global:distro_search_pattern="D.e.b.i.a.n"
-    $global:distro_name="Debian"
-    $global:distro_setup_file="debian.exe"
-    
-    
-    # Set-Variable -Name "wsl_distro_link" - value "https://aka.ms/wsl-debian-gnulinux" -scope global    
-    # Set-Variable -Name "wsl_distro_sha1" - value "19a369332ee015bb8ddb1dcf99553bebcfd068cb" -scope global
-    # Set-Variable -Name "wsl_distro_use_this_sub_appx" - value "DistroLauncher-Appx_1.12.1.0_x64.appx" -scope global
-    # Set-Variable -Name "distro_local_path" - value "$Env:SystemDrive\Linux\debian" -scope global
-    # Set-Variable -Name "distro_search_pattern" - value "D.e.b.i.a.n" -scope global
-    # Set-Variable -Name "distro_name" - value "Debian" -scope global
-    # Set-Variable -Name "distro_setup_file" - value "debian.exe" -scope global
-}
-
-function UseUbuntuDistro()
-{
-    $global:wsl_distro_link="https://aka.ms/wslubuntu2004"
-    $global:wsl_distro_sha1="FED6EB0B0E18C395B3A0F37C036678D5B67DB919"
-    $global:wsl_distro_use_this_sub_appx=""
-    $global:distro_local_path="$Env:SystemDrive\Linux\ubuntu2004"
-    $global:distro_search_pattern="U.b.u.n.t.u.-.2.0...0.4"
-    $global:distro_name="Ubuntu-20.04"
-    $global:distro_setup_file="ubuntu2004.exe"
-    
-    # Set-Variable -Name "wsl_distro_link" - value "https://aka.ms/wslubuntu2004" -scope global    
-    # Set-Variable -Name "wsl_distro_sha1" - value "FED6EB0B0E18C395B3A0F37C036678D5B67DB919" -scope global
-    # Set-Variable -Name "wsl_distro_use_this_sub_appx" - value "" -scope global
-    # Set-Variable -Name "distro_local_path" - value "$Env:SystemDrive\Linux\ubuntu2004" -scope global
-    # Set-Variable -Name "distro_search_pattern" - value "U.b.u.n.t.u.-.2.0...0.4" -scope global
-    # Set-Variable -Name "distro_name" - value "Ubuntu-20.04" -scope global
-    # Set-Variable -Name "distro_setup_file" - value "ubuntu2004.exe" -scope global
-}
 
 function ContinueOrExit([string]$message)
 {
@@ -76,13 +31,14 @@ function RestartComputer([string]$script_path)
 
 function IsPulseInstalled([string]$pulse_path)
 {
-    return test-path $pulse_path    
+	$target_path=CheckForFile $pulse_path "$pulse_audio_executable"	
+	return $target_path
 }
 
 function IsXServerInstalled([string]$xsrv_executable)
 {
     $target_path=CheckForFile $ENV:ProgramFiles $xsrv_executable
-    return ![string]::IsNullOrEmpty($target_path)
+    return $target_path
 }
 
 function CheckWindowsReleaseId()
@@ -179,7 +135,7 @@ function StartProcess([string]$message, [string]$file_path, [string]$argument_li
     {
         echo $message
     }
-
+	
     if ( $argument_list -eq "" ) 
     {
         $executed_process=Start-Process -Wait -NoNewWindow -PassThru -FilePath $file_path
@@ -188,11 +144,18 @@ function StartProcess([string]$message, [string]$file_path, [string]$argument_li
     {
         $executed_process=Start-Process -Wait -NoNewWindow -PassThru -FilePath $file_path -ArgumentList $argument_list 
     }
-    
-    if (!$?) 
+	
+	$exit_code = $executed_process | select -ExpandProperty "ExitCode"
+	
+    if ($exit_code -ne 0) 
     {
         ContinueOrExit "Execution of [$file_path] has failed"
+		$global:procSuccess=$false
     }
+	else
+	{
+		$global:procSuccess=$true
+	}
 }
 
 function QueryWsl2AndInstall([string]$wsl2_kernel_link, [string]$wsl2_kernel_sha1)
@@ -213,12 +176,25 @@ function QueryWsl2AndInstall([string]$wsl2_kernel_link, [string]$wsl2_kernel_sha
         $local_file_path="$env:TEMP\wsl_update_x64.msi" 
         DownloadAndCheckCRC $wsl2_kernel_link $local_file_path $wsl2_kernel_sha1
         StartProcess "Installing WSL2 kernel." "msiexec.exe" "/i $local_file_path /qn" 
-        $result = wsl --set-default-version 2
+		if ( ! $global:procSuccess )
+		{
+			ContinueOrExit "Install of WSL2 kernel failed"
+			return
+		}
+		else
+		{
+			$result = wsl --set-default-version 2
+		}
     } 
     else 
     {
         echo "WSL2 kernel is available"
     }
+	
+	wsl --update
+	if ( !$? ) {
+	  ContinueOrExit "Update to latest WSL2 kernel failed"
+	}
 }
 
 function Unzip ([string]$source_path, [string] $target_path)
@@ -236,100 +212,40 @@ function Unzip ([string]$source_path, [string] $target_path)
     }
 }
 
-function DownloadDistroAndPrepareDirectory([string]$distro_local_path, [string] $wsl_distro_link, [string]$wsl_distro_sha1)
-{
-    $local_file_path="$env:TEMP\distro.zip"
-    
-    if ( (test-path "$local_file_path") -and (CheckHash "$local_file_path" $wsl_distro_sha1) )
-    {
-        $header = 'Distro installer is available locally'
-        $text = "The distro is not installed, but apparently the installer is available in the file system under [$local_file_path]. Do you want to use the local copy?"
-        $choices = '&Yes', '&No'
-
-        $answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
-        if ($answer -ne 0) {
-            DownloadAndCheckCRC $wsl_distro_link $local_file_path $wsl_distro_sha1
-        } 
-    }
-    else
-    {
-        ContinueOrExit "Downloading distro image, this can take a while (usual size is around 500Mb)"
-        DownloadAndCheckCRC $wsl_distro_link $local_file_path $wsl_distro_sha1
-    }
-    
-    if ($wsl_distro_use_this_sub_appx -ne "")
-    {
-        $random_temp_dir_name = GetRandomTempFolder
-        Unzip $local_file_path $random_temp_dir_name
-        $zip_name = [System.IO.Path]::ChangeExtension("$random_temp_dir_name\$wsl_distro_use_this_sub_appx",".zip")
-        # unzip checks the extension. if it is not *.zip it fails.
-        rename-item -path "$random_temp_dir_name\$wsl_distro_use_this_sub_appx" -newname $zip_name
-        Unzip "$zip_name" $distro_local_path
-    }
-    else
-    {
-        Unzip $local_file_path $distro_local_path
-    }
-    icacls $distro_local_path /t /grant "Everyone:(OI)(CI)F"
-    if (!$?) 
-    {
-        ContinueOrExit "Setting the rights for the distro image failed"
-    }
-}
-
 function GetRandomTempFolder ()
 {
     return "$env:TEMP\"+[System.IO.Path]::GetRandomFileName()
 }
 
-function SelectDistro ()
+function QueryDistroAndInstall ([string]$distro_name)
 {
-    if ($distro -eq "debian")
-    {
-        UseDebianDistro
-    }    
-    else
-    {
-        UseUbuntuDistro
-    }
-}
-
-function QueryDistroAndInstall ([string]$distro_local_path, [string] $wsl_distro_link, [string]$wsl_distro_sha1, [string]$distro_search_pattern, [string]$distro_setup_file, [string]$wsl_distro_use_this_sub_appx)
-{
-    echo "Querying for distro..."
+    echo "Querying for distro $distro_name"
     $is_distro_available = $false
-    [string[]]$result =wsl -l
+	echo "Available distros:"
+    [string[]]$result =wsl -l -q
     foreach ($i in $result) {
-       if ( (echo $i | Select-String -pattern $distro_search_pattern).Matches.Count -ne 0 ) { 
+		if ( $i -eq $distro_name ) {
            $is_distro_available = $true
            break 
        }
     }
 
     if ( ! $is_distro_available ) {
-        if ( Test-Path "$distro_local_path\$distro_setup_file" )
-        {
-            $header = 'Distro available locally'
-            $text = "The distro is not registered, but apparently it is available in the file system under [$distro_local_path\$distro_setup_file]. Do you want to use the local copy?"
-            $choices = '&Yes', '&No'
-
-            $answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
-            if ($answer -ne 0) {
-                DownloadDistroAndPrepareDirectory $distro_local_path $wsl_distro_link $wsl_distro_sha1
-            } 
-        }
-        else 
-        {
-            DownloadDistroAndPrepareDirectory $distro_local_path $wsl_distro_link $wsl_distro_sha1
-        }
-
-        StartProcess "Starting Distro installer. Please follow the on screen instructions, and when the bash prompt is displayed, type `exit` to continue with the setup." "$distro_local_path\$distro_setup_file"        
-        echo "Continuing installer"
+        StartProcess "Starting Distro installer. Please follow the on screen instructions, and when the bash prompt is displayed, type `exit` to continue with the setup." "wsl.exe" "--install -d $distro_name"
+		if ( ! $global:procSuccess ) {
+			ContinueOrExit "Distro install failed"
+			$global:distroAvailable=$false
+			return
+		}
+		
+        ContinueOrExit "Please wait for the distro installer to finish"
     } 
     else 
     {
-        echo "Distro image is available."
+        echo "Distro already available. If you want to install the same distro as a different instance, you need to rename the existing one. See https://superuser.com/questions/1507237/how-to-change-the-name-of-a-wsl-distro-to-reflect-the-actual-distro"
     }
+	
+	$global:distroAvailable=$true
 }
 
 function GetWindowsDnsServer ()
@@ -360,21 +276,30 @@ function CheckAndFixWslDns ([string]$default_nameserver_ip, [bool]$use_windows_n
     
     $argument="wget -q --spider http://google.com; if [[ $? -ne 0 ]]; then read -p 'WSL DNS is not working. To fix the DNS issue in WSL, we need to execute elevated commands (sudo). WSL will ask you for your Linux password. Press any key to start ...'; cd /etc; echo '[network]' | sudo tee wsl.conf; echo 'generateResolvConf = false' | sudo tee -a wsl.conf; sudo rm -Rf resolv.conf; $resolv_conf_command else echo 'WSL DNS is working'; fi"
     StartProcess "" "wsl" $argument
+	if ( ! $global:procSuccess )
+	{
+		ContinueOrExit "Failed to perform check and fix for DNS"
+	}
+	
     wsl --shutdown
 }
 
-function MaintainExportDisplay ([string]$host_ip)
+function MaintainExportDisplay ()
 {
-    $Argument_Export_Display="if grep '^export DISPLAY' ~/.bashrc ; then  sed -i -r 's|^(export DISPLAY\s*=\s*).*|\1$host_ip"+":0|' ~/.bashrc ; else echo export DISPLAY=$host_ip"+":0 >> ~/.bashrc ; fi ; grep '^export DISPLAY' ~/.bashrc"
+	$findIp='$(route.exe print | grep 0.0.0.0 | head -1 | awk ''\''''{print $4;}''\''''):0'
+    $Argument_Export_Display="if ( ! grep 'export DISPLAY=$findIp' ~/.bashrc ) ; then echo 'export DISPLAY=$findIp' >> ~/.bashrc; fi"
     StartProcess "Maintain ~.bashrc on default distro for DISPLAY" "wsl" "$Argument_Export_Display"
+	if ( ! $global:procSuccess )
+	{
+		ContinueOrExit "Failed to perform manitenance on Export DISPLAY"
+	}
 }
 
-function DoSetupForXWindows ([string]$host_ip, [string]$xsrv_link, [string]$xsrv_sha1)
+function DoSetupForXWindows ([string]$xsrv_link, [string]$xsrv_sha1)
 {
     $local_file_path="$env:TEMP\xsrv_installer.exe"
     DownloadAndCheckCRC $xsrv_link $local_file_path $xsrv_sha1
     & $local_file_path /S
-    MaintainExportDisplay $host_ip
 }
 
 function CreateShortcut([string]$shortcut_name, [string]$target_path, [string]$argument, [string]$special_folder, [string]$working_directory)
@@ -439,7 +364,7 @@ function CreateShortcutsForXWindows([string]$target_path, [string]$xsrv_start_ar
     CreateAutostartShortcut $shortcut_name $target_path $xsrv_start_arguments $ENV:ProgramFiles
 }
 
-function SetupXWindows ([string]$host_ip, [string]$xsrv_link, [string]$xsrv_sha1, [string]$xsrv_executable, [string]$xsrv_start_arguments)
+function SetupXWindows ([string]$xsrv_link, [string]$xsrv_sha1, [string]$xsrv_executable, [string]$xsrv_start_arguments)
 {
     $target_path=CheckForFile $ENV:ProgramFiles $xsrv_executable
     if ( ![string]::IsNullOrEmpty($target_path) )
@@ -458,7 +383,7 @@ function SetupXWindows ([string]$host_ip, [string]$xsrv_link, [string]$xsrv_sha1
             return        
         } 
         
-        DoSetupForXWindows $host_ip $xsrv_link $xsrv_sha1
+        DoSetupForXWindows $xsrv_link $xsrv_sha1
         $target_path=CheckForFile $ENV:ProgramFiles $xsrv_executable
         if ([string]::IsNullOrEmpty($target_path))
         {
@@ -467,6 +392,7 @@ function SetupXWindows ([string]$host_ip, [string]$xsrv_link, [string]$xsrv_sha1
         }
     }
     
+	MaintainExportDisplay
     CreateShortcutsForXWindows $target_path $xsrv_start_arguments
 }
 
@@ -480,11 +406,15 @@ function MaintainPulse ([string]$host_ip, [string]$pulse_path)
     }
 }
 
-function MaintainExportPulse ([string]$host_ip)
+function MaintainExportPulse ()
 {
-    $Argument_Export_Pulse="if grep '^export PULSE_SERVER' ~/.bashrc ; then  sed -i -r 's|^(export PULSE_SERVER\s*=\s*).*|\1tcp:"+"$host_ip|' ~/.bashrc ; else echo export PULSE_SERVER=tcp:"+"$host_ip >> ~/.bashrc ; fi ; grep '^export PULSE_SERVER' ~/.bashrc"
-    
+	$findIp='$(route.exe print | grep 0.0.0.0 | head -1 | awk ''\''''{print $4;}''\'''')'
+    $Argument_Export_Pulse="if ( ! grep 'export PULSE_SERVER=tcp:$findIp' ~/.bashrc ) ; then echo 'export PULSE_SERVER=tcp:$findIp' >> ~/.bashrc; fi"
     StartProcess "Maintain ~.bashrc on default distro for PULSE_SERVER" "wsl" "$Argument_Export_Pulse"
+	if ( ! $global:procSuccess )
+	{
+		ContinueOrExit "Failed to perform manitenance on Export PULSE_SERVER"
+	}
 }
 
 function DoSetupForPulse ([string]$host_ip, [string]$pulse_path, [string]$pulse_audio_link, [string]$pulse_audio_sha1)
@@ -494,13 +424,12 @@ function DoSetupForPulse ([string]$host_ip, [string]$pulse_path, [string]$pulse_
     Unzip $local_file_path $pulse_path
     Move-Item "$pulse_path\pulse\*" $pulse_path
     MaintainPulse $host_ip $pulse_path
-    MaintainExportPulse $host_ip
 }
 
 function CreateShortcutsForPulse([string]$pulse_path)
 {
     $shortcut_name="PulseWslAudioServer"
-    $target_path="$pulse_path\pulseaudio.exe"
+    $target_path="$pulse_path\$pulse_audio_executable"
     $argument="-F config.pa --use-pid-file=false --exit-idle-time=-1"
     CreateStartMenuShortcut $shortcut_name $target_path $argument $pulse_path
     CreateAutostartShortcut $shortcut_name $target_path $argument $pulse_path
@@ -508,7 +437,7 @@ function CreateShortcutsForPulse([string]$pulse_path)
 
 function SetupPulseAudio ([string]$host_ip, [string]$pulse_path, [string]$pulse_audio_link, [string]$pulse_audio_sha1)
 {
-    $target_path=CheckForFile $pulse_path "pulseaudio.exe"
+    $target_path=CheckForFile $pulse_path "$pulse_audio_executable"
     if ( ![string]::IsNullOrEmpty($target_path) )
     {
         echo "Pulse Audio Server is installed under [$target_path]"
@@ -526,88 +455,74 @@ function SetupPulseAudio ([string]$host_ip, [string]$pulse_path, [string]$pulse_
         } 
         
         DoSetupForPulse $host_ip $pulse_path $pulse_audio_link $pulse_audio_sha1
-        $target_path=CheckForFile $pulse_path "pulseaudio.exe"
+        $target_path=CheckForFile $pulse_path "$pulse_audio_executable"
         if ([string]::IsNullOrEmpty($target_path))
         {
-            echo "Unable to create shorcut for pulseaudio.exe, the file cannot be located under $pulse_path"
+            echo "Unable to create shorcut for $pulse_audio_executable, the file cannot be located under $pulse_path"
             return
         }
     }
     
+	MaintainExportPulse
     CreateShortcutsForPulse $pulse_path
 }
 
-function DoMaintainFirewall ([string]$firewall_rule_name, [string]$host_ip)
+function MaintainFirewall ([string]$firewall_rule_name, [string]$xserver_exe_path, [string]$pulse_exe_path)
 {
-    Get-NetFirewallRule -Displayname "$firewall_rule_name" > $null 2>&1
-    if ( !$? ) { 
-        echo "Creating firewall rule for WSL Server [$firewall_rule_name]"
-        New-NetFirewallRule -DisplayName $firewall_rule_name -RemoteAddress $host_ip -LocalAddress $host_ip -Direction inbound -Profile 'Domain, Private' -Action Allow
-    } else {
-        $wsl_firewall_ip=(Get-NetFirewallRule -Displayname "$firewall_rule_name" | Get-NetFirewallAddressFilter).RemoteAddress
-        if ( !$? ) {
-            echo "Firewall rule [$firewall_rule_name] is not available"
-            return
-        }
-
-        if ( $wsl_firewall_ip -ne $host_ip ) {
-            echo "Setting address in firewall rule for WSL Server"
-            Get-NetFirewallRule -DisplayName $firewall_rule_name | Get-NetFirewallAddressFilter | Set-NetFirewallAddressFilter -RemoteAddress $host_ip -LocalAddress $host_ip
-        }
-        else
-        {
-            echo "Firewall rule [$firewall_rule_name] is OK"
-        }
+	if ([string]::IsNullOrEmpty($xserver_exe_path)) {
+        echo "No xserver is installed, therefore no firewall modification is needed"
     }
+	else {
+		Get-NetFirewallRule -Displayname $firewall_rule_name'_XServer' > $null 2>&1
+		if ( $? ) {
+			echo "Firewall rule for xserver is already available, therefore no firewall modification is needed"
+		}
+		
+		CreateFirewallRule $firewall_rule_name'_XServer' $xserver_exe_path '6000'
+	}
+	
+	if ([string]::IsNullOrEmpty($pulse_exe_path)) {
+        echo "No pulse audio is installed, therefore no firewall modification is needed"
+    }
+	else {
+		Get-NetFirewallRule -Displayname $firewall_rule_name'_Pulse' > $null 2>&1
+		if ( $? ) {
+			echo "Firewall rule for pulse audio is already available, therefore no firewall modification is needed"
+		}
+	
+		CreateFirewallRule $firewall_rule_name'_Pulse' $pulse_exe_path '4000'
+	}
 }
 
-function MaintainFirewall ([string]$firewall_rule_name, [string]$host_ip)
+function CreateFirewallRule ([string]$firewall_rule_name, [string]$exe_path, [int]$port)
 {
     Get-NetFirewallRule -Displayname "$firewall_rule_name" > $null 2>&1
-    if ( !$? )
-    {
-        $header = 'Maintain firewall rules'
-        $text = 'Do you want to check and maintain or create firewall rules? It is necessary for X Windows and audio servers to work.'
-        $choices = '&Yes', '&No'
-        $answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
-        if ($answer -ne 0) {
-            echo "Firewall rule is not set up. X Windows and Audio from WSL might not work."
-            return        
-        }        
+    if ( $? ) { 
+		echo "Firewall rule with name $firewall_rule_name is already available. Aborting."
+		return
+	}
+	
+	$header = "Create firewall rule: $firewall_rule_name"
+	$text = "Do you want to create the firewall rule for $exe_path?"
+	$choices = '&Yes', '&No'
+	$answer = $Host.UI.PromptForChoice($header, $text, $choices, 1)
+	if ($answer -ne 0) {
+		echo "Firewall rule for $exe_path is not set up."
+		return        
+	} 
+
+    new-NetFirewallRule -DisplayName $firewall_rule_name -Profile 'Domain, Private' -Direction 'Inbound' -Action 'Allow' -Protocol 'TCP' -LocalPort $port -Program $exe_path
+    if ( $? ) { 
+        echo "Creating firewall rule [$firewall_rule_name] succeeded."
+    } else {
+        ContinueOrExit "Creating firewall rule [$firewall_rule_name] has failed"
     }
-    
-    DoMaintainFirewall $firewall_rule_name $host_ip
 }
 
 function SetDistroDefault ([string]$distro_name)
 {
     echo "Setting $distro_name as default."
     & wsl -s $distro_name
-}
-
-function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$pulse_path, [string]$xsrv_executable, [string]$distro_name, [string]$default_nameserver_ip, [bool]$use_windows_nameserver)
-{
-    SetDistroDefault $distro_name
-    CheckAndFixWslDns $default_nameserver_ip $use_windows_nameserver
-    
-    [bool]$is_pulse_installed=IsPulseInstalled $pulse_path
-    [bool]$is_xsrv_installed=IsXServerInstalled $xsrv_executable
-    
-    if ( $is_pulse_installed -OR $is_xsrv_installed )
-    {
-        DoMaintainFirewall $firewall_rule_name $host_ip
-    }
-    
-    if ( $is_xsrv_installed )
-    {
-        MaintainExportDisplay $host_ip
-    }
-    
-    if ( $is_pulse_installed ) 
-    { 
-        MaintainPulse $host_ip $pulse_path
-        MaintainExportPulse $host_ip
-    }
 }
 
 #function Main(string[]$args)
@@ -622,6 +537,7 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
             echo "Please re-run this script as an Administrator!"
             exit        
         }
+		
         echo "Continuing without admin rights"
     }
     
@@ -630,40 +546,29 @@ function MaintainOnly ([string]$host_ip, [string]$firewall_rule_name, [string]$p
     {
         $host_ip=QueryHostIp
     }
-    
-    if (! [string]::IsNullOrEmpty($maintain) )
-    {
-        echo "Performing maintaintenance only for image $maintain"
         
-        MaintainOnly $host_ip $firewall_rule_name $pulse_path $xsrv_executable $maintain $default_nameserver_ip $use_windows_nameserver
-        exit
-    }
-    
-    SelectDistro
-    
     echo "Host IP: $host_ip"
     echo "Firewall rule name: $firewall_rule_name"
     echo "Pulse audio path: $pulse_path"
-    echo "Distro local path: $global:distro_local_path"
+    echo "Distro name: $distro"
     
     CheckWindowsReleaseId
     QueryHypervStateAndInstall $script_path
     QueryWSLStateAndInstall $script_path
     QueryWsl2AndInstall $wsl2_kernel_link $wsl2_kernel_sha1
-    QueryDistroAndInstall $global:distro_local_path $global:wsl_distro_link $global:wsl_distro_sha1 $global:distro_search_pattern $global:distro_setup_file $global:wsl_distro_use_this_sub_appx
-    SetDistroDefault $global:distro_name
+    QueryDistroAndInstall $distro
+	if ( ! $global:distroAvailable )
+	{
+		echo "$distro is not available. Cannot operate."
+		exit
+	}
+	
+    SetDistroDefault $distro
     CheckAndFixWslDns $default_nameserver_ip $use_windows_nameserver
-    SetupXWindows $host_ip $xsrv_link $xsrv_sha1 $xsrv_executable $xsrv_start_arguments
+    SetupXWindows $xsrv_link $xsrv_sha1 $xsrv_executable $xsrv_start_arguments
     SetupPulseAudio $host_ip $pulse_path $pulse_audio_link $pulse_audio_sha1
     
-    [bool]$is_pulse_installed=IsPulseInstalled $pulse_path
-    [bool]$is_xsrv_installed=IsXServerInstalled $xsrv_executable
-    if ( $is_pulse_installed -OR $is_xsrv_installed )
-    {
-        MaintainFirewall $firewall_rule_name $host_ip 
-    }
+    [string]$pulse_exe_path=IsPulseInstalled $pulse_path
+    [string]$xserver_exe_path=IsXServerInstalled $xsrv_executable
+    MaintainFirewall $firewall_rule_name $xserver_exe_path $pulse_exe_path
 #}
-
-
-
-
