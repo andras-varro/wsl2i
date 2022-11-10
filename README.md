@@ -1,5 +1,5 @@
 # WSL2 installer
-This script installs Windows Subsystem for Linux (WSL 2) on a Windows computer (even with no Microsoft Store access) with optional X Server and audio
+This script installs Windows Subsystem for Linux (WSL 2) on a Windows computer (even with no Microsoft Store access) with optional X Server and audio (Pulse audio is currently not working :( )
 
 ## Introduction
 If you are using a VMWare or VirtualBox or Hyper-V for working with Linux based tools, WSL gives you a great alternative. Read on here: https://docs.microsoft.com/en-us/windows/wsl/about
@@ -15,19 +15,15 @@ This is a Windows Powershell script and requires admin rights and Internet conne
 
 ## How to customize basic settings
 The script supports the following parameters:
-- host_ip [string]: Disables the auto-detection for host IP, and use the supplied instead. Use this if the auto detection doesn't work, for instace if you are not connected to a network. In this case Windows gives you a local address. The default value is to auto detect the host's IP.
-- maintain [bool]: Don't perform any installation, just update the IP and fix the DNS in WSL. Use this if you have a readily installed environment and you want to update it because your IP has changed. The default value is `$false`.
 - pulse_path [string]: Specifies where to install/search for Pulse Audio Server if you opt-in for using it. Set this parameter, if you want to install/use Pulse Audio to/from a specific location. The default value is `$env:ProgramFiles\Pulse`.
 - firewall_rule_name [string]: Specifies what should be the name of the firewall rule. Firewall rule is only created if X-Windows server and/or Pulse Audio server is enabled. Use this variable, if you want to change the default value. The default value is `WSL Server`.
-- distro [string]: currently "debian" and "ubuntu" is supported
+- distro [string]: used to find the distro local, then if it is not available in the online distribution source from Microsoft (wsl -l -o).
 
 Examples:
 ```
-./wsl2i.ps1 -host_ip "192.168.4.100" -pulse_path "d:\wsl\pulse" -firewall_rule_name "_for_wsl" 
+./wsl2i.ps1 -pulse_path "d:\wsl\pulse" -firewall_rule_name "_for_wsl" 
 
-./wsl2i.ps1 -pulse_path "d:\wsl\pulse" -firewall_rule_name "_for_wsl" -maintain $true
-
-./wsl2i.ps1 -distro "debian"
+./wsl2i.ps1 -distro "Debian"
 
 ```
 
@@ -53,9 +49,25 @@ Windows drives are mounted in WSL under /mnt, like /mnt/c/Users == c:\Users
     3. Reboot your computer
     4. Download and install the WSL2 kernel from: https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
     5. Open a PowerShell or cmd and execute:
-        wsl --set-default-version 2
-        
-2. Install a Linux distro
+        ```
+	wsl --set-default-version 2
+	```
+    6. Update the kernel
+        ```
+        wsl --update
+	```
+	
+2. Install a Linux distro - modern way
+    1. List available distros
+       ```
+       wsl -l -o
+       ```
+    2. Install the one you want to have
+       ```
+       wsl --install -d <name>
+       ```
+   Install a Linux distro - legacy way    
+       
     1. Please **only download** an available distro from here: https://docs.microsoft.com/en-us/windows/wsl/install-manual
         Explanation: if you install through appx installer without Windows Store enabled, you might run into a 'File not found' or 0x80070002 error.
     2. Create a location on your system drive (see: https://docs.microsoft.com/en-us/windows/wsl/install-win10#troubleshooting-installation, but it works for me on D: drive) where you want your distro to run from (like c:\work\wsl)
@@ -141,6 +153,9 @@ The DNS should be functional
 +1. You might need one more additional step: replace the REPLACE_Your_Network_Interface_Name_REPLACE with your Network Interface's name.
     Get-NetAdapter | Where-Object {$_.InterfaceDescription -Match "REPLACE_Your_Network_Interface_Name_REPLACE"} | Set-NetIPInterface -InterfaceMetric 6000
 
+## Renaming a WSL instance
+
+This involves registry editing, please read: https://superuser.com/questions/1507237/how-to-change-the-name-of-a-wsl-distro-to-reflect-the-actual-distro
 
 ## Using XWindows with WSL2 
 
@@ -160,49 +175,56 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
 
 3. Start VcXsrv (either through the created shortcut, or with XLaunch from the Start Menu)
 
-4. Get your IP address
-    1. Open a PowerShell or cmd
-    2. Type: ipconfig /all
-    3. Locate the network adapter, where the DNS server setting is available (same as in the fix for the DNS server issue):
-    [...]
-    Ethernet adapter something (NiceNameForSomething):
-```
-       Connection-specific DNS Suffix  . :
-       Description . . . . . . . . . . . : Description here!
-       Physical Address. . . . . . . . . : FF-00-FF-00-FF-00
-       DHCP Enabled. . . . . . . . . . . : Yes
-       Autoconfiguration Enabled . . . . : Yes
-    ==>IPv4 Address. . . . . . . . . . . : 192.168.1.111(Preferred)<== this is what you need
-       Subnet Mask . . . . . . . . . . . : 255.255.255.0
-       Lease Obtained. . . . . . . . . . : Friday, March 26, 2021 09:16:34
-       Lease Expires . . . . . . . . . . : Friday, March 26, 2021 11:28:41
-       Default Gateway . . . . . . . . . : 192.168.1.1
-       DHCPv4 Class ID . . . . . . . . . : ra006
-       DHCP Server . . . . . . . . . . . : 192.168.1.1
-       DNS Servers . . . . . . . . . . . : 192.168.1.1
-       NetBIOS over Tcpip. . . . . . . . : Disabled
-    [...]
-```
+4. In your Linux distro you need to export the DISPLAY variable. The below line will automatically use the correct IP, even though your IP is changed (use `source ~\.bashrc` to update the setting on a long running bash)
+   ```
+   echo 'export DISPLAY=$(route.exe print | grep 0.0.0.0 | head -1 | awk '\''{print $4;}'\''):0' >> ~/.bashrc
+  ```
+  
+  Legacy notes:
 
-    In this example your IP address is 192.168.1.111
-    
-    Alternatively you can use this hacky PowerShell snippet:
-```
-(Get-NetIPConfiguration |
-            Where-Object {
-                $_.IPv4DefaultGateway -ne $null -and
-                $_.NetAdapter.Status -ne "Disconnected"
-            }
-        ).IPv4Address.IPAddress    
-```
+	4. Get your IP address
+	    1. Open a PowerShell or cmd
+	    2. Type: ipconfig /all
+	    3. Locate the network adapter, where the DNS server setting is available (same as in the fix for the DNS server issue):
+	    [...]
+	    Ethernet adapter something (NiceNameForSomething):
+	```
+	       Connection-specific DNS Suffix  . :
+	       Description . . . . . . . . . . . : Description here!
+	       Physical Address. . . . . . . . . : FF-00-FF-00-FF-00
+	       DHCP Enabled. . . . . . . . . . . : Yes
+	       Autoconfiguration Enabled . . . . : Yes
+	    ==>IPv4 Address. . . . . . . . . . . : 192.168.1.111(Preferred)<== this is what you need
+	       Subnet Mask . . . . . . . . . . . : 255.255.255.0
+	       Lease Obtained. . . . . . . . . . : Friday, March 26, 2021 09:16:34
+	       Lease Expires . . . . . . . . . . : Friday, March 26, 2021 11:28:41
+	       Default Gateway . . . . . . . . . : 192.168.1.1
+	       DHCPv4 Class ID . . . . . . . . . : ra006
+	       DHCP Server . . . . . . . . . . . : 192.168.1.1
+	       DNS Servers . . . . . . . . . . . : 192.168.1.1
+	       NetBIOS over Tcpip. . . . . . . . : Disabled
+	    [...]
+	```
 
-5. In your Linux distro you need to export the DISPLAY variable (REPLACE 192.168.1.111 with your IP address)
-    1. To start Linux type: bash
-    2. echo "export DISPLAY=192.168.1.111:0" >> ~/.bashrc
-    3. source ~/.bashrc
-    
-    If your IP address changes, you will need to update the export for DISPLAY.
-    If you have issues with opengl, try enabling wgl for the VcXsrv (see above), and export LIBGL_ALWAYS_INDIRECT=1 in ~/.bashrc
+	    In this example your IP address is 192.168.1.111
+
+	    Alternatively you can use this hacky PowerShell snippet:
+	```
+	(Get-NetIPConfiguration |
+		    Where-Object {
+			$_.IPv4DefaultGateway -ne $null -and
+			$_.NetAdapter.Status -ne "Disconnected"
+		    }
+		).IPv4Address.IPAddress    
+	```
+
+	5. In your Linux distro you need to export the DISPLAY variable (REPLACE 192.168.1.111 with your IP address)
+	    1. To start Linux type: bash
+	    2. echo "export DISPLAY=192.168.1.111:0" >> ~/.bashrc
+	    3. source ~/.bashrc
+
+	    If your IP address changes, you will need to update the export for DISPLAY.
+	    If you have issues with opengl, try enabling wgl for the VcXsrv (see above), and export LIBGL_ALWAYS_INDIRECT=1 in ~/.bashrc
 
 6. You need to set an inbound firewall rule, so that VcXsrv can receive the XWindows communication
     1. To start Windows Firewall Settings type: wf.msc
@@ -224,6 +246,8 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
 ## Audio with WSL2 (https://tomjepp.uk/2015/05/31/streaming-audio-from-linux-to-windows.html)
 
 Similarly to XWindows communication, the WSL2 Pulse server will use the firewall rule from the XWindows walkthrough from above
+
+>Note: Sadly, the Pulse is not currently working
  
 1. Download the PulseAudio build for windows from http://code.x2go.org/releases/binary-win32/3rd-party/pulse/pulseaudio-5.0-rev18.zip
 
