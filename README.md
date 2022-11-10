@@ -164,7 +164,7 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
 
 1. Download and install VcXsrv from https://sourceforge.net/projects/vcxsrv/
 
-2. For (auto)start with Windows: 
+1. For (auto)start with Windows: 
     1. open %appdata%\Microsoft\Windows\Start Menu\Programs\Startup
     2. create a new shortcut (right click, new, shortcut)
     3. copy and paste: "C:\Program Files\VcXsrv\vcxsrv.exe" :0 -ac -terminate -lesspointer -multiwindow -clipboard -nowgl
@@ -173,60 +173,14 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
       - Why nowgl? Usually the articles say to enable native opengl, but this setting didn't work for me. If you have low performance on opengl, try using -wgl (see also LIBGL_ALWAYS_INDIRECT below).
       - The above settings (more-or-less) on XLaunch: multiple windows, display 0, start no client, enable clipboard, disable native opengl, enable access control
 
-3. Start VcXsrv (either through the created shortcut, or with XLaunch from the Start Menu)
+1. Start VcXsrv (either through the created shortcut, or with XLaunch from the Start Menu)
 
-4. In your Linux distro you need to export the DISPLAY variable. The below line will automatically use the correct IP, even though your IP is changed (use `source ~\.bashrc` to update the setting on a long running bash)
+1. In your Linux distro you need to export the DISPLAY variable. The below line will automatically use the correct IP, even though your IP is changed (use `source ~\.bashrc` to update the setting on a long running bash)
    ```
    echo 'export DISPLAY=$(route.exe print | grep 0.0.0.0 | head -1 | awk '\''{print $4;}'\''):0' >> ~/.bashrc
-  ```
-  
-  Legacy notes:
+   ```
 
-	4. Get your IP address
-	    1. Open a PowerShell or cmd
-	    2. Type: ipconfig /all
-	    3. Locate the network adapter, where the DNS server setting is available (same as in the fix for the DNS server issue):
-	    [...]
-	    Ethernet adapter something (NiceNameForSomething):
-	```
-	       Connection-specific DNS Suffix  . :
-	       Description . . . . . . . . . . . : Description here!
-	       Physical Address. . . . . . . . . : FF-00-FF-00-FF-00
-	       DHCP Enabled. . . . . . . . . . . : Yes
-	       Autoconfiguration Enabled . . . . : Yes
-	    ==>IPv4 Address. . . . . . . . . . . : 192.168.1.111(Preferred)<== this is what you need
-	       Subnet Mask . . . . . . . . . . . : 255.255.255.0
-	       Lease Obtained. . . . . . . . . . : Friday, March 26, 2021 09:16:34
-	       Lease Expires . . . . . . . . . . : Friday, March 26, 2021 11:28:41
-	       Default Gateway . . . . . . . . . : 192.168.1.1
-	       DHCPv4 Class ID . . . . . . . . . : ra006
-	       DHCP Server . . . . . . . . . . . : 192.168.1.1
-	       DNS Servers . . . . . . . . . . . : 192.168.1.1
-	       NetBIOS over Tcpip. . . . . . . . : Disabled
-	    [...]
-	```
-
-	    In this example your IP address is 192.168.1.111
-
-	    Alternatively you can use this hacky PowerShell snippet:
-	```
-	(Get-NetIPConfiguration |
-		    Where-Object {
-			$_.IPv4DefaultGateway -ne $null -and
-			$_.NetAdapter.Status -ne "Disconnected"
-		    }
-		).IPv4Address.IPAddress    
-	```
-
-	5. In your Linux distro you need to export the DISPLAY variable (REPLACE 192.168.1.111 with your IP address)
-	    1. To start Linux type: bash
-	    2. echo "export DISPLAY=192.168.1.111:0" >> ~/.bashrc
-	    3. source ~/.bashrc
-
-	    If your IP address changes, you will need to update the export for DISPLAY.
-	    If you have issues with opengl, try enabling wgl for the VcXsrv (see above), and export LIBGL_ALWAYS_INDIRECT=1 in ~/.bashrc
-
-6. You need to set an inbound firewall rule, so that VcXsrv can receive the XWindows communication
+1. You need to set an inbound firewall rule, so that VcXsrv can receive the XWindows communication
     1. To start Windows Firewall Settings type: wf.msc
     2. Click: Inbound Rules
     3. Click: New Rule (either on the right side pane or right-click Inbound Rules)
@@ -237,11 +191,56 @@ To have a XWindows (and pulse audio) we need to setup the 'servers' on the Windo
       5. Allow the connection
       6. Select: Domain and Private, decelect Public
       7. Name as WSL Server
-        
-7. Test from Linux:
+
+1. Test from Linux:
 	1. sudo apt install mesa-utils
 	2. glxgears
+	
+1. Legacy notes:
 
+* Get your IP address
+    1. Open a PowerShell or cmd
+    2. Type: ipconfig /all
+    3. Locate the network adapter, where the DNS server setting is available (same as in the fix for the DNS server issue):
+    [...]
+    Ethernet adapter something (NiceNameForSomething):
+```
+       Connection-specific DNS Suffix  . :
+       Description . . . . . . . . . . . : Description here!
+       Physical Address. . . . . . . . . : FF-00-FF-00-FF-00
+       DHCP Enabled. . . . . . . . . . . : Yes
+       Autoconfiguration Enabled . . . . : Yes
+    ==>IPv4 Address. . . . . . . . . . . : 192.168.1.111(Preferred)<== this is what you need
+       Subnet Mask . . . . . . . . . . . : 255.255.255.0
+       Lease Obtained. . . . . . . . . . : Friday, March 26, 2021 09:16:34
+       Lease Expires . . . . . . . . . . : Friday, March 26, 2021 11:28:41
+       Default Gateway . . . . . . . . . : 192.168.1.1
+       DHCPv4 Class ID . . . . . . . . . : ra006
+       DHCP Server . . . . . . . . . . . : 192.168.1.1
+       DNS Servers . . . . . . . . . . . : 192.168.1.1
+       NetBIOS over Tcpip. . . . . . . . : Disabled
+    [...]
+```
+
+    In this example your IP address is 192.168.1.111
+
+    Alternatively you can use this hacky PowerShell snippet:
+```
+(Get-NetIPConfiguration |
+	    Where-Object {
+		$_.IPv4DefaultGateway -ne $null -and
+		$_.NetAdapter.Status -ne "Disconnected"
+	    }
+	).IPv4Address.IPAddress    
+```
+
+* In your Linux distro you need to export the DISPLAY variable (REPLACE 192.168.1.111 with your IP address)
+    1. To start Linux type: bash
+    2. echo "export DISPLAY=192.168.1.111:0" >> ~/.bashrc
+    3. source ~/.bashrc
+
+    If your IP address changes, you will need to update the export for DISPLAY.
+    If you have issues with opengl, try enabling wgl for the VcXsrv (see above), and export LIBGL_ALWAYS_INDIRECT=1 in ~/.bashrc
 
 ## Audio with WSL2 (https://tomjepp.uk/2015/05/31/streaming-audio-from-linux-to-windows.html)
 
