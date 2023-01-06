@@ -231,7 +231,7 @@ function QueryDistroAndInstall ([string]$distro_name)
     }
 
     if ( ! $is_distro_available ) {
-        StartProcess "Starting Distro installer. Please follow the on screen instructions, and when the bash prompt is displayed, type `exit` to continue with the setup." "wsl.exe" "--install -d $distro_name"
+        StartProcess "Starting Distro installer. Please follow the on screen instructions, and when the bash prompt is displayed, type `exit` to continue with the setup." "wsl.exe" "--install -d $distro_name --web-download"
 		if ( ! $global:procSuccess ) {
 			ContinueOrExit "Distro install failed"
 			$global:distroAvailable=$false
@@ -274,7 +274,7 @@ function CheckAndFixWslDns ([string]$default_nameserver_ip, [bool]$use_windows_n
         $resolv_conf_command="echo ""nameserver $default_nameserver_ip"" | sudo tee resolv.conf;"
     }
     
-    $argument="wget -q --spider http://google.com; if [[ $? -ne 0 ]]; then read -p 'WSL DNS is not working. To fix the DNS issue in WSL, we need to execute elevated commands (sudo). WSL will ask you for your Linux password. Press any key to start ...'; cd /etc; echo '[network]' | sudo tee wsl.conf; echo 'generateResolvConf = false' | sudo tee -a wsl.conf; sudo rm -Rf resolv.conf; $resolv_conf_command else echo 'WSL DNS is working'; fi"
+    $argument="wget -q --spider http://google.com; if [[ "+'$?'+" -ne 0 ]]; then read -p 'WSL DNS is not working. To fix the DNS issue in WSL, we need to execute elevated commands (sudo). WSL will ask you for your Linux password. Press any key to start ...'; cd /etc; echo '[network]' | sudo tee wsl.conf; echo 'generateResolvConf = false' | sudo tee -a wsl.conf; sudo rm -Rf resolv.conf; $resolv_conf_command else echo 'WSL DNS is working'; fi"
     StartProcess "" "wsl" $argument
 	if ( ! $global:procSuccess )
 	{
